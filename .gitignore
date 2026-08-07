@@ -1,0 +1,4 @@
+*.tar.gz
+*.tar
+backup-ai-*/
+.DS_Store
