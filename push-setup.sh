@@ -47,7 +47,8 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
   METHOD="gh"
 elif [[ -n "${GITHUB_TOKEN:-}" ]]; then
   METHOD="pat"
-elif ssh -o BatchMode=yes -o ConnectTimeout=3 -T git@github.com >/dev/null 2>&1; then
+elif SSH_TEST="$(ssh -o BatchMode=yes -o ConnectTimeout=3 -T git@github.com 2>&1 || true)" \
+     && printf '%s' "$SSH_TEST" | grep -q "successfully authenticated"; then
   METHOD="ssh"
 fi
 
