@@ -152,7 +152,7 @@ cat > "$META/README-restore.txt" <<EOF
    sudo pacman -S git nodejs npm pnpm python sqlite3 tmux eza fastfetch lolcat ripgrep
    git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si
 
-2) Restore otomatis (script ini disertakan di srv/http/tools):
+2) Restore otomatis (script ini disertakan di srv/http/ai-setup):
    restore-setup.sh $LABEL.tar.gz
 
 3) Atau manual:

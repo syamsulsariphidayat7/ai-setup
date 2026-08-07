@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# push-setup.sh — publish repo tools ke GitHub
+# push-setup.sh — publish repo setup AI ke GitHub
 #
 # Membuat repo GitHub (kalau belum ada) lalu push branch main.
 # Default: SSH + repo ai-setup (git@github.com:syamsulsariphidayat7/ai-setup.git)
@@ -18,7 +18,7 @@
 #   3. PAT:      export GITHUB_TOKEN=ghp_xxx  (scope: repo)
 #
 # Setelah push: di Arch baru tinggal
-#   git clone git@github.com:<user>/<repo>.git ~/tools
+#   git clone git@github.com:<user>/<repo>.git ~/ai-setup
 # ============================================================================
 set -uo pipefail
 
@@ -34,10 +34,10 @@ GITHUB_USER="${GITHUB_USER:-$(git config user.name)}"
 VISIBILITY="private"
 [[ "${PUBLIC:-0}" == "1" ]] && VISIBILITY="public"
 
-cd /srv/http/tools || { echo "❌ cd /srv/http/tools gagal" >&2; exit 1; }
+cd /srv/http/ai-setup || { echo "❌ cd /srv/http/ai-setup gagal" >&2; exit 1; }
 
 echo "============================================================"
-echo "  📤 push-setup.sh v${VERSION} — publish repo tools ke GitHub"
+echo "  📤 push-setup.sh v${VERSION} — publish repo setup AI ke GitHub"
 echo "  Repo   : $GITHUB_USER/$REPO ($VISIBILITY)"
 echo "============================================================"
 
@@ -104,8 +104,8 @@ echo "============================================================"
 echo "  ✅ Selesai. Repo: https://github.com/$GITHUB_USER/$REPO"
 echo ""
 echo "  Setelah reinstal Arch:"
-echo "    git clone https://github.com/$GITHUB_USER/$REPO.git ~/tools"
-echo "    ln -sf ~/tools/opencode-pick ~/.local/bin/opencode-pick"
-echo "    ln -sf ~/tools/backup-setup.sh ~/.local/bin/backup-setup"
-echo "    ln -sf ~/tools/restore-setup.sh ~/.local/bin/restore-setup"
+echo "    git clone git@github.com:$GITHUB_USER/$REPO.git ~/ai-setup"
+echo "    ln -sf ~/ai-setup/opencode-pick ~/.local/bin/opencode-pick"
+echo "    ln -sf ~/ai-setup/backup-setup.sh ~/.local/bin/backup-setup"
+echo "    ln -sf ~/ai-setup/restore-setup.sh ~/.local/bin/restore-setup"
 echo "============================================================"

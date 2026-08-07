@@ -1,4 +1,4 @@
-# AI Setup Tools
+# AI Setup
 
 Skrip pendukung setup AI di Arch Linux: pemilih combo otomatis untuk opencode,
 plus backup/restore lengkap sebelum reinstal Arch.
@@ -37,14 +37,14 @@ Sebelum clone repo ini, pastikan di Arch baru sudah ada:
 
 ```fish
 # 1. Clone repo (butuh SSH key GitHub sudah terdaftar)
-git clone git@github.com:syamsulsariphidayat7/ai-setup.git ~/tools
+git clone git@github.com:syamsulsariphidayat7/ai-setup.git ~/ai-setup
 
 # 2. Buat symlink supaya bisa dipanggil langsung dari mana saja
-ln -sf ~/tools/opencode-pick ~/.local/bin/opencode-pick
-ln -sf ~/tools/backup-setup.sh ~/.local/bin/backup-setup
-ln -sf ~/tools/restore-setup.sh ~/.local/bin/restore-setup
-ln -sf ~/tools/push-setup.sh ~/.local/bin/push-setup
-chmod +x ~/tools/*.sh ~/tools/opencode-pick
+ln -sf ~/ai-setup/opencode-pick ~/.local/bin/opencode-pick
+ln -sf ~/ai-setup/backup-setup.sh ~/.local/bin/backup-setup
+ln -sf ~/ai-setup/restore-setup.sh ~/.local/bin/restore-setup
+ln -sf ~/ai-setup/push-setup.sh ~/.local/bin/push-setup
+chmod +x ~/ai-setup/*.sh ~/ai-setup/opencode-pick
 
 # 3. Pastikan ~/.local/bin di PATH (fish)
 fish_add_path ~/.local/bin
