@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # ============================================================================
-# push-setup.sh — publish repo tools ke GitHub (setelah auth siap)
+# push-setup.sh — publish repo tools ke GitHub
 #
 # Membuat repo GitHub (kalau belum ada) lalu push branch main.
+# Default: SSH + repo ai-setup (git@github.com:syamsulsariphidayat7/ai-setup.git)
 #
 # Penggunaan:
 #   push-setup.sh [nama-repo]        # default: ai-setup
@@ -12,12 +13,12 @@
 #   PUBLIC        # "1" = repo public (default: private)
 #
 # Prasyarat auth (salah satu):
-#   1. gh CLI:   sudo pacman -S github-cli && gh auth login
-#   2. PAT:      export GITHUB_TOKEN=ghp_xxx  (scope: repo)
-#   3. SSH:      ssh-keygen + tambah ke github.com/settings/keys
+#   1. SSH:      ssh-keygen + tambah ~/.ssh/id_ed25519.pub di github.com/settings/keys
+#   2. gh CLI:   sudo pacman -S github-cli && gh auth login
+#   3. PAT:      export GITHUB_TOKEN=ghp_xxx  (scope: repo)
 #
 # Setelah push: di Arch baru tinggal
-#   git clone https://github.com/<user>/<repo>.git ~/tools
+#   git clone git@github.com:<user>/<repo>.git ~/tools
 # ============================================================================
 set -uo pipefail
 
@@ -52,9 +53,9 @@ fi
 
 if [[ -z "$METHOD" ]]; then
   echo "❌ Tidak ada metode auth yang siap. Lakukan salah satu:"
-  echo "   1) sudo pacman -S github-cli && gh auth login"
-  echo "   2) export GITHUB_TOKEN=ghp_xxx   (PAT dengan scope repo)"
-  echo "   3) ssh-keygen && tambah key ke github.com/settings/keys"
+  echo "   1) ssh-keygen && tambah key ke github.com/settings/keys"
+  echo "   2) sudo pacman -S github-cli && gh auth login"
+  echo "   3) export GITHUB_TOKEN=ghp_xxx   (PAT dengan scope repo)"
   exit 1
 fi
 echo "  ✅ metode auth: $METHOD"
@@ -79,8 +80,11 @@ case "$METHOD" in
     fi
     ;;
   ssh)
-    # repo harus dibuat manual di github.com (atau via gh nanti) — cek ada
     echo "  ℹ️  SSH: pastikan repo $GITHUB_USER/$REPO sudah dibuat di github.com"
+    if ! git ls-remote "git@github.com:$GITHUB_USER/$REPO.git" HEAD >/dev/null 2>&1; then
+      echo "  ⚠️  repo belum ada/bisa diakses — buat dulu di github.com/new"
+      echo "     (atau pakai gh: gh repo create $REPO --private --source .)"
+    fi
     ;;
 esac
 
