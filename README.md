@@ -87,7 +87,7 @@ Yang di-restore otomatis:
 2. Proyek ke `/srv/http` (butuh sudo)
 3. Paket repo (`pacman`) + AUR (`yay`: opencode-bin, omniroute-bin)
 4. PATH `~/.local/bin` di config.fish
-5. Combo router (re-create yang hilang via API)
+5. Combo router (re-create yang hilang via API — strategy selalu **round-robin**)
 
 > Router nyala otomatis saat login Hyprland (autostart `custom/execs.lua`).
 > Kalau login non-desktop: jalankan manual `omniroute` → login agentrouter.org.
@@ -109,3 +109,24 @@ opencode-pick --reset          # reset tracker proyek
 Setiap selesai sesi, ringkasan otomatis dicatat ke `PROGRESS.md` proyek
 (`## Riwayat`). Skor mempertimbangkan: ukuran kode, dependensi, stack
 (AGENTS.md), fase (PROGRESS.md), test, git.
+
+---
+
+## 🎯 Kebijakan combo: round-robin
+
+Semua combo router (`ops-free`, `ops-dev`, `ops-pro`, `ops-plan`) memakai
+strategi **round-robin**: router memutar model secara bergiliran per request
+(bukan prioritas/fallback — model pertama tidak selalu dipakai duluan).
+
+| Combo | Tier | Chain model (rotasi per request) |
+|---|---|---|
+| `ops-free` | ringan | felo/felo-chat · auto/coding:free · gpt-5.6-sol · kimi-k3-free |
+| `ops-dev` | menengah | felo/felo-chat · gpt-5.6-sol · claude-opus-4-8 · kimi-k3-free |
+| `ops-pro` | berat | claude-opus-4-8 · gpt-5.6-sol · claude-opus-5 |
+| `ops-plan` | paling pintar | claude-opus-5 · claude-opus-4-8 · gpt-5.6-sol |
+
+Definisi combo ada di router (akun agentrouter.org / `omniroute`) — repo ini
+hanya memilih combo per proyek lewat `opencode-pick`. `backup-setup.sh`
+menyimpan dump combo ke `meta/combos.json`; saat restore, combo yang hilang
+dibuat ulang via API memakai dump itu (models & config) tapi strategy **selalu
+round-robin**, apa pun isi backup lama.
