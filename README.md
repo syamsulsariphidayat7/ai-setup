@@ -120,8 +120,8 @@ strategi **round-robin**: router memutar model secara bergiliran per request
 
 | Combo | Tier | Chain model (rotasi per request) |
 |---|---|---|
-| `ops-free` | ringan | felo/felo-chat · auto/coding:free · gpt-5.6-sol · kimi-k3-free |
-| `ops-dev` | menengah | felo/felo-chat · gpt-5.6-sol · claude-opus-4-8 · kimi-k3-free |
+| `ops-free` | ringan | felo/felo-chat · gpt-5.6-sol |
+| `ops-dev` | menengah | felo/felo-chat · gpt-5.6-sol · claude-opus-4-8 |
 | `ops-pro` | berat | claude-opus-4-8 · gpt-5.6-sol · claude-opus-5 |
 | `ops-plan` | paling pintar | claude-opus-5 · claude-opus-4-8 · gpt-5.6-sol |
 

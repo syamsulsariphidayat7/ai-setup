@@ -4,7 +4,7 @@
 #
 # Menganalisis kompleksitas proyek (file, LOC, bahasa, framework, test, git)
 # lalu merekomendasikan combo yang tepat:
-#   ops-free   : tugas ringan / gratis            (felo → auto/free → gpt-5.6-sol)
+#   ops-free   : tugas ringan / gratis            (felo → gpt-5.6-sol)
 #   ops-dev    : coding rutin                     (felo → gpt-5.6-sol → opus-4-8)
 #   ops-pro    : fitur berat / multi-file         (opus-4-8 → gpt-5.6-sol → opus-5)
 #   ops-plan   : awal proyek / arsitektur         (opus-5 → opus-4-8 → gpt-5.6-sol)
@@ -52,7 +52,7 @@ declare -A COMBO_TIER=(
   [ops-plan]="paling pintar"
 )
 declare -A COMBO_CHAIN=(
-  [ops-free]="felo/felo-chat → auto/coding:free → gpt-5.6-sol"
+  [ops-free]="felo/felo-chat → gpt-5.6-sol"
   [ops-dev]="felo/felo-chat → gpt-5.6-sol → claude-opus-4-8"
   [ops-pro]="claude-opus-4-8 → gpt-5.6-sol → claude-opus-5"
   [ops-plan]="claude-opus-5 → claude-opus-4-8 → gpt-5.6-sol"
