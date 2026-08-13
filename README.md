@@ -7,12 +7,12 @@ plus backup/restore lengkap sebelum reinstal Arch.
 
 ## 📦 Isi
 
-| File | Fungsi |
-|---|---|
-| `opencode-pick` | Pemilih combo otomatis per proyek (skor kompleksitas + fase + stack), auto-catat sesi ke PROGRESS.md |
-| `backup-setup.sh` | Backup lengkap setup AI (config, proyek, daftar paket, combo router) ke satu .tar.gz |
-| `restore-setup.sh` | Restore otomatis dari archive backup di Arch baru (paket + config + proyek + combo) |
-| `push-setup.sh` | Publikasi repo ini ke GitHub (kalau perlu re-push setelah update) |
+| File | Versi | Fungsi |
+|---|---|---|
+| `opencode-pick` | 1.5.0 | Pemilih combo otomatis per proyek (skor kompleksitas + fase + stack), auto-catat sesi ke PROGRESS.md |
+| `backup-setup.sh` | 1.0.1 | Backup lengkap setup AI (config, proyek, daftar paket, combo router) ke satu .tar.gz |
+| `restore-setup.sh` | 1.0.1 | Restore otomatis dari archive backup di Arch baru (paket + config + proyek + combo) |
+| `push-setup.sh` | 1.0.0 | Publikasi repo ini ke GitHub (kalau perlu re-push setelah update) |
 
 ---
 
@@ -68,7 +68,7 @@ backup-setup /mnt/usb
 ```
 
 Isi archive:
-- `home/` — config opencode (+ AGENTS-global), omniroute-desktop, **hypr (autostart router)**, fish/starship, `~/.local/bin`, `opencode.db` (riwayat sesi), state tracker
+- `home/` — config opencode (+ AGENTS-global), omniroute-desktop, **hypr (autostart router)**, fish/starship, `.gitconfig`/`.bashrc`/`.claude.json`, `~/.local/bin`, `opencode.db` (riwayat sesi), state tracker
 - `srv/` — seluruh proyek di `/srv/http`
 - `meta/` — daftar paket repo + AUR, dump combo router, README-restore
 
@@ -99,12 +99,21 @@ Yang di-restore otomatis:
 ```fish
 cd /srv/http/<nama-proyek>
 opencode-pick run "pesan"      # pilih combo otomatis + jalankan opencode
-opencode-pick                  # TUI pilih mode
+opencode-pick                  # TUI: analisis + buka opencode dengan combo terpilih
 opencode-pick -c run "x"       # lanjut sesi terakhir
-opencode-pick --dry-run        # lihat hasil analisis tanpa jalan
+opencode-pick --print          # hanya nama combo (untuk scripting)
+opencode-pick --model-only     # ID model opencode (omniroute/<combo>)
 opencode-pick --json           # output JSON (skor, fase, stack, combo)
+opencode-pick --combo ops-pro  # paksa combo tertentu
+opencode-pick --history        # riwayat auto-switch proyek ini
+opencode-pick --dry-run        # lihat hasil analisis tanpa jalan
 opencode-pick --reset          # reset tracker proyek
+opencode-pick --no-track       # tanpa simpan state & catat PROGRESS.md
+opencode-pick --no-log         # tanpa catat ringkasan sesi ke PROGRESS.md
 ```
+
+Override per proyek: simpan file `.opencode-combo` di root proyek (berisi nama
+combo, mis. `ops-pro`) atau set env `OC_COMBO` untuk mengunci pilihan.
 
 Setiap selesai sesi, ringkasan otomatis dicatat ke `PROGRESS.md` proyek
 (`## Riwayat`). Skor mempertimbangkan: ukuran kode, dependensi, stack
