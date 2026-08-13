@@ -217,12 +217,36 @@ ROUTER="http://localhost:20128"
 if curl -s -m 4 -o /dev/null "$ROUTER/v1/models"; then
   echo "  ✅ router hidup di $ROUTER"
   KEY=""
-  if [[ -f "$RESTORE_HOME/.config/opencode/opencode.json" ]]; then
-    KEY=$(RESTORE_HOME="$RESTORE_HOME" python3 -c '
+  CFG=""
+  for f in opencode.json opencode.jsonc; do
+    if [[ -f "$RESTORE_HOME/.config/opencode/$f" ]]; then CFG="$f"; break; fi
+  done
+  if [[ -n "$CFG" ]]; then
+    KEY=$(RESTORE_HOME="$RESTORE_HOME" CFG="$CFG" python3 -c '
 import json, os
+p = os.path.join(os.environ["RESTORE_HOME"], ".config/opencode", os.environ["CFG"])
+def jstrip(s):
+    # buang komentar // dan /* */ di luar string (JSONC)
+    r, i, n, q = [], 0, len(s), False
+    while i < n:
+        c = s[i]
+        if q:
+            r.append(c)
+            if c == "\\" and i + 1 < n: r.append(s[i+1]); i += 2; continue
+            if c == "\"": q = False
+            i += 1; continue
+        if c == "\"": q = True; r.append(c); i += 1; continue
+        if c == "/" and i + 1 < n and s[i+1] == "/":
+            while i < n and s[i] != "\n": i += 1
+            continue
+        if c == "/" and i + 1 < n and s[i+1] == "*":
+            i += 2
+            while i + 1 < n and not (s[i] == "*" and s[i+1] == "/"): i += 1
+            i += 2; continue
+        r.append(c); i += 1
+    return "".join(r)
 try:
-    d = json.load(open(os.path.join(os.environ["RESTORE_HOME"],
-        ".config/opencode/opencode.json")))
+    d = json.loads(jstrip(open(p).read()))
     print(d.get("provider", {}).get("omniroute", {}).get("options", {}).get("apiKey", ""))
 except Exception:
     print("")' 2>/dev/null || echo "")
@@ -279,7 +303,7 @@ for c in combos:
 PY
     fi
   else
-    echo "  ⚠️  API key tidak ditemukan di opencode.json — combo tidak bisa diverifikasi"
+    echo "  ⚠️  API key tidak ditemukan di config opencode (opencode.json/.jsonc) — combo tidak bisa diverifikasi"
   fi
 else
   echo "  ℹ️  router belum hidup — jalankan 'omniroute' lalu login agentrouter.org"

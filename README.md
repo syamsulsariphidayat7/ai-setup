@@ -13,6 +13,7 @@ plus backup/restore lengkap sebelum reinstal Arch.
 | `backup-setup.sh` | 1.0.1 | Backup lengkap setup AI (config, proyek, daftar paket, combo router) ke satu .tar.gz |
 | `restore-setup.sh` | 1.0.1 | Restore otomatis dari archive backup di Arch baru (paket + config + proyek + combo) |
 | `push-setup.sh` | 1.0.0 | Publikasi repo ini ke GitHub (kalau perlu re-push setelah update) |
+| `combos-setup.sh` | 1.0.0 | Buat combo standar ops-free/dev/pro/plan (strategy round-robin) di router OmniRoute via API lokal |
 
 ---
 
@@ -44,6 +45,7 @@ ln -sf ~/ai-setup/opencode-pick ~/.local/bin/opencode-pick
 ln -sf ~/ai-setup/backup-setup.sh ~/.local/bin/backup-setup
 ln -sf ~/ai-setup/restore-setup.sh ~/.local/bin/restore-setup
 ln -sf ~/ai-setup/push-setup.sh ~/.local/bin/push-setup
+ln -sf ~/ai-setup/combos-setup.sh ~/.local/bin/combos-setup
 chmod +x ~/ai-setup/*.sh ~/ai-setup/opencode-pick
 
 # 3. Pastikan ~/.local/bin di PATH (fish)
@@ -121,6 +123,24 @@ Setiap selesai sesi, ringkasan otomatis dicatat ke `PROGRESS.md` proyek
 
 ---
 
+## 🎯 Buat combo di router (sekali saja)
+
+Setelah `omniroute` terpasang & login (dashboard `http://localhost:20128`),
+buat API key management (Settings → API Keys → Create), lalu:
+
+```fish
+combos-setup --key sk-xxx     # buat combo yang belum ada (idempotent)
+combos-setup --dry-run        # lihat rencana dulu (tanpa key)
+combos-setup --force          # update combo yang sudah ada ke round-robin
+```
+
+Membuat/men-sinkronkan combo `ops-free`, `ops-dev`, `ops-pro`, `ops-plan`
+(strategy **round-robin**) lewat API lokal `POST /api/combos`. Key juga bisa
+diambil otomatis dari `apiKey` provider omniroute di config opencode
+(`opencode.json`/`.jsonc`) atau env `OMNIROUTE_KEY`.
+
+---
+
 ## 🎯 Kebijakan combo: round-robin
 
 Semua combo router (`ops-free`, `ops-dev`, `ops-pro`, `ops-plan`) memakai
@@ -129,10 +149,10 @@ strategi **round-robin**: router memutar model secara bergiliran per request
 
 | Combo | Tier | Chain model (rotasi per request) |
 |---|---|---|
-| `ops-free` | ringan | felo/felo-chat · gpt-5.6-sol |
-| `ops-dev` | menengah | felo/felo-chat · gpt-5.6-sol · claude-opus-4-8 |
-| `ops-pro` | berat | claude-opus-4-8 · gpt-5.6-sol · claude-opus-5 |
-| `ops-plan` | paling pintar | claude-opus-5 · claude-opus-4-8 · gpt-5.6-sol |
+| `ops-free` | ringan | felo/felo-chat · agentrouter/gpt-5.6-sol |
+| `ops-dev` | menengah | felo/felo-chat · agentrouter/gpt-5.6-sol · agentrouter/claude-opus-4-8 |
+| `ops-pro` | berat | agentrouter/claude-opus-4-8 · agentrouter/gpt-5.6-sol · agentrouter/claude-opus-5 |
+| `ops-plan` | paling pintar | agentrouter/claude-opus-5 · agentrouter/claude-opus-4-8 · agentrouter/gpt-5.6-sol |
 
 Definisi combo ada di router (akun agentrouter.org / `omniroute`) — repo ini
 hanya memilih combo per proyek lewat `opencode-pick`. `backup-setup.sh`
