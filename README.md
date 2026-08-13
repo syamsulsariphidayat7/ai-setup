@@ -151,8 +151,8 @@ strategi **round-robin**: router memutar model secara bergiliran per request
 |---|---|---|
 | `ops-free` | ringan | felo/felo-chat · agentrouter/gpt-5.6-sol |
 | `ops-dev` | menengah | felo/felo-chat · agentrouter/gpt-5.6-sol · agentrouter/claude-opus-4-8 |
-| `ops-pro` | berat | agentrouter/claude-opus-4-8 · agentrouter/gpt-5.6-sol · agentrouter/claude-opus-5 |
-| `ops-plan` | paling pintar | agentrouter/claude-opus-5 · agentrouter/claude-opus-4-8 · agentrouter/gpt-5.6-sol |
+| `ops-pro` | berat | agentrouter/claude-opus-4-8 · agentrouter/gpt-5.6-sol · agentrouter/claude-opus-5 · felo/felo-chat |
+| `ops-plan` | paling pintar | agentrouter/claude-opus-5 · agentrouter/claude-opus-4-8 · agentrouter/gpt-5.6-sol · felo/felo-chat |
 
 Definisi combo ada di router (akun agentrouter.org / `omniroute`) — repo ini
 hanya memilih combo per proyek lewat `opencode-pick`. `backup-setup.sh`

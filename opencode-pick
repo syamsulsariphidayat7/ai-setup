@@ -6,8 +6,8 @@
 # lalu merekomendasikan combo yang tepat:
 #   ops-free   : tugas ringan / gratis            (felo/felo-chat → agentrouter/gpt-5.6-sol)
 #   ops-dev    : coding rutin                     (felo/felo-chat → agentrouter/gpt-5.6-sol → agentrouter/claude-opus-4-8)
-#   ops-pro    : fitur berat / multi-file         (agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → agentrouter/claude-opus-5)
-#   ops-plan   : awal proyek / arsitektur         (agentrouter/claude-opus-5 → agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol)
+#   ops-pro    : fitur berat / multi-file         (agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → agentrouter/claude-opus-5 → felo/felo-chat)
+#   ops-plan   : awal proyek / arsitektur         (agentrouter/claude-opus-5 → agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → felo/felo-chat)
 #
 # Penggunaan:
 #   opencode-pick                      # rekomendasi + buka opencode TUI dengan combo tsb
@@ -54,8 +54,8 @@ declare -A COMBO_TIER=(
 declare -A COMBO_CHAIN=(
   [ops-free]="felo/felo-chat → agentrouter/gpt-5.6-sol"
   [ops-dev]="felo/felo-chat → agentrouter/gpt-5.6-sol → agentrouter/claude-opus-4-8"
-  [ops-pro]="agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → agentrouter/claude-opus-5"
-  [ops-plan]="agentrouter/claude-opus-5 → agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol"
+  [ops-pro]="agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → agentrouter/claude-opus-5 → felo/felo-chat"
+  [ops-plan]="agentrouter/claude-opus-5 → agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → felo/felo-chat"
 )
 
 # ---------------------------------------------------------------------------
