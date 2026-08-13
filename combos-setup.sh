@@ -34,10 +34,10 @@ FORCE=0
 
 # combo standar — chain model sama dengan kebijakan di README & opencode-pick
 declare -A COMBO_MODELS=(
-  [ops-free]="felo/felo-chat|agentrouter/gpt-5.6-sol"
-  [ops-dev]="felo/felo-chat|agentrouter/gpt-5.6-sol|agentrouter/claude-opus-4-8"
-  [ops-pro]="agentrouter/claude-opus-4-8|agentrouter/gpt-5.6-sol|agentrouter/claude-opus-5|felo/felo-chat"
-  [ops-plan]="agentrouter/claude-opus-5|agentrouter/claude-opus-4-8|agentrouter/gpt-5.6-sol|felo/felo-chat"
+  [ops-free]="oc/deepseek-v4-flash-free|agentrouter/gpt-5.6-sol"
+  [ops-dev]="oc/deepseek-v4-flash-free|agentrouter/gpt-5.6-sol|agentrouter/claude-opus-4-8"
+  [ops-pro]="oc/deepseek-v4-flash-free|agentrouter/claude-opus-4-8|agentrouter/gpt-5.6-sol|agentrouter/claude-opus-5"
+  [ops-plan]="agentrouter/claude-opus-5|agentrouter/claude-opus-4-8|agentrouter/gpt-5.6-sol|oc/deepseek-v4-flash-free"
 )
 declare -A COMBO_TIER=(
   [ops-free]="ringan"
