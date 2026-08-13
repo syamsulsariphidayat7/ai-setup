@@ -35,8 +35,8 @@ Untuk model `claude-opus-5` kadang muncul error lain dari AgentRouter:
 | curl replay payload opencode persis (30 KB) | 400 (saat itu), 200 (saat diuji lagi beberapa menit kemudian) |
 | curl minimal → combo berisi agentrouter saja | 400 konsisten di satu momen, 200 di momen lain |
 | opencode → `omniroute/agentrouter/claude-opus-4-8` | 400 (mayoritas) |
-| opencode → `omniroute/ops-free` (felo dulu) | 200 (felo yang menjawab) |
-| `felo/felo-chat` | 200, lalu 429 setelah banyak request ("Felo thread creation failed with HTTP 429") |
+| opencode → `omniroute/ops-free` (deepseek dulu) | 200 (deepseek yang menjawab) |
+| `oc/deepseek-v4-flash-free` (OpenCode) | 200, lalu 429 setelah banyak request ("Rate limit exceeded" dari provider Console) |
 
 Kesimpulan sementara: `content-blocked` datang dari upstream AgentRouter dan
 **berfluktuasi terhadap waktu/volume**, bukan ditentukan payload. Tidak ada
