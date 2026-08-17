@@ -5,11 +5,11 @@
 # Menganalisis kompleksitas proyek (file, LOC, bahasa, framework, test, git)
 # lalu merekomendasikan combo yang tepat (strategi priority = fallback chain,
 # model pertama dicoba dulu; oc/deepseek-v4-flash-free selalu jaring pengaman
-# terakhir):
-#   ops-free   : tugas ringan / gratis            (agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free)
-#   ops-dev    : coding rutin                     (agentrouter/gpt-5.6-sol → agentrouter/claude-opus-4-8 → oc/deepseek-v4-flash-free)
-#   ops-pro    : fitur berat / multi-file         (agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free)
-#   ops-plan   : awal proyek / arsitektur         (agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free)
+# dan oc/mimo-v2.5-free lapis terakhir):
+#   ops-free   : tugas ringan / gratis            (agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free)
+#   ops-dev    : coding rutin                     (agentrouter/gpt-5.6-sol → agentrouter/claude-opus-4-8 → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free)
+#   ops-pro    : fitur berat / multi-file         (agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free)
+#   ops-plan   : awal proyek / arsitektur         (agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free)
 #
 # Penggunaan:
 #   opencode-pick                      # rekomendasi + buka opencode TUI dengan combo tsb
@@ -54,10 +54,10 @@ declare -A COMBO_TIER=(
   [ops-plan]="paling pintar"
 )
 declare -A COMBO_CHAIN=(
-  [ops-free]="agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free"
-  [ops-dev]="agentrouter/gpt-5.6-sol → agentrouter/claude-opus-4-8 → oc/deepseek-v4-flash-free"
-  [ops-pro]="agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free"
-  [ops-plan]="agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free"
+  [ops-free]="agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free"
+  [ops-dev]="agentrouter/gpt-5.6-sol → agentrouter/claude-opus-4-8 → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free"
+  [ops-pro]="agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free"
+  [ops-plan]="agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free"
 )
 
 # ---------------------------------------------------------------------------

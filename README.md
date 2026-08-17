@@ -148,14 +148,16 @@ Semua combo router (`ops-free`, `ops-dev`, `ops-pro`, `ops-plan`) memakai
 strategi **priority**: router mencoba model pertama dulu; kalau gagal/error,
 lanjut ke model berikutnya (fallback chain). Model agentrouter sesuai tier
 berada di depan; `oc/deepseek-v4-flash-free` **selalu terakhir** sebagai
-jaring pengaman gratis sehingga combo tidak pernah mati total.
+jaring pengaman, dan `oc/mimo-v2.5-free` sebagai lapis paling akhir
+(redundansi model gratis provider oc — terbukti jalan tanpa API key) sehingga
+combo tidak pernah mati total.
 
 | Combo | Tier | Chain model (urutan prioritas → fallback) |
 |---|---|---|
-| `ops-free` | ringan | agentrouter/gpt-5.6-sol · oc/deepseek-v4-flash-free |
-| `ops-dev` | menengah | agentrouter/gpt-5.6-sol · agentrouter/claude-opus-4-8 · oc/deepseek-v4-flash-free |
-| `ops-pro` | berat | agentrouter/claude-opus-4-8 · agentrouter/gpt-5.6-sol · oc/deepseek-v4-flash-free |
-| `ops-plan` | paling pintar | agentrouter/claude-opus-4-8 · agentrouter/gpt-5.6-sol · oc/deepseek-v4-flash-free |
+| `ops-free` | ringan | agentrouter/gpt-5.6-sol · oc/deepseek-v4-flash-free · oc/mimo-v2.5-free |
+| `ops-dev` | menengah | agentrouter/gpt-5.6-sol · agentrouter/claude-opus-4-8 · oc/deepseek-v4-flash-free · oc/mimo-v2.5-free |
+| `ops-pro` | berat | agentrouter/claude-opus-4-8 · agentrouter/gpt-5.6-sol · oc/deepseek-v4-flash-free · oc/mimo-v2.5-free |
+| `ops-plan` | paling pintar | agentrouter/claude-opus-4-8 · agentrouter/gpt-5.6-sol · oc/deepseek-v4-flash-free · oc/mimo-v2.5-free |
 
 > `agentrouter/claude-opus-5` sengaja tidak dipakai: akun agentrouter.org ini
 > tidak punya akses ke model tersebut ("no available distributor") — combo

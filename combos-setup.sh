@@ -5,9 +5,9 @@
 # Membuat 4 combo routing dengan strategy priority (fallback chain — model
 # pertama dicoba dulu, gagal → lanjut ke berikutnya) lewat API lokal OmniRoute:
 # POST /api/combos (Authorization: Bearer). Setiap combo = model agentrouter
-# sesuai tier di depan + oc/deepseek-v4-flash-free di POSISI TERAKHIR sebagai
-# jaring pengaman gratis. Combo yang sudah ada dilewati (idempotent);
-# --force untuk update via PUT.
+# sesuai tier di depan + oc/deepseek-v4-flash-free + oc/mimo-v2.5-free di
+# POSISI TERAKHIR sebagai jaring pengaman gratis berlapis. Combo yang sudah
+# ada dilewati (idempotent); --force untuk update via PUT.
 #
 # Penggunaan:
 #   combos-setup.sh                  # buat combo yang belum ada
@@ -29,7 +29,7 @@
 # ============================================================================
 set -uo pipefail
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 BASE="${OMNIROUTE_URL:-http://localhost:20128}"
 KEY=""
 DRY=0
@@ -37,14 +37,15 @@ FORCE=0
 
 # combo standar — chain model sama dengan kebijakan di README & opencode-pick.
 # Strategi priority: urutan = prioritas (fallback chain). Model agentrouter di
-# depan sesuai tier; oc/deepseek-v4-flash-free SELALU terakhir (jaring pengaman
-# gratis). claude-opus-5 sengaja TIDAK dipakai: akun agentrouter tidak punya
-# akses ("no available distributor").
+# depan sesuai tier; oc/deepseek-v4-flash-free di posisi akhir, dan
+# oc/mimo-v2.5-free SELALU PALING TERAKHIR sebagai jaring pengaman lapis 2
+# (provider oc terbukti jalan tanpa key). claude-opus-5 sengaja TIDAK dipakai:
+# akun agentrouter tidak punya akses ("no available distributor").
 declare -A COMBO_MODELS=(
-  [ops-free]="agentrouter/gpt-5.6-sol|oc/deepseek-v4-flash-free"
-  [ops-dev]="agentrouter/gpt-5.6-sol|agentrouter/claude-opus-4-8|oc/deepseek-v4-flash-free"
-  [ops-pro]="agentrouter/claude-opus-4-8|agentrouter/gpt-5.6-sol|oc/deepseek-v4-flash-free"
-  [ops-plan]="agentrouter/claude-opus-4-8|agentrouter/gpt-5.6-sol|oc/deepseek-v4-flash-free"
+  [ops-free]="agentrouter/gpt-5.6-sol|oc/deepseek-v4-flash-free|oc/mimo-v2.5-free"
+  [ops-dev]="agentrouter/gpt-5.6-sol|agentrouter/claude-opus-4-8|oc/deepseek-v4-flash-free|oc/mimo-v2.5-free"
+  [ops-pro]="agentrouter/claude-opus-4-8|agentrouter/gpt-5.6-sol|oc/deepseek-v4-flash-free|oc/mimo-v2.5-free"
+  [ops-plan]="agentrouter/claude-opus-4-8|agentrouter/gpt-5.6-sol|oc/deepseek-v4-flash-free|oc/mimo-v2.5-free"
 )
 declare -A COMBO_TIER=(
   [ops-free]="ringan"
