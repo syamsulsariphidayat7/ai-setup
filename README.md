@@ -13,7 +13,7 @@ plus backup/restore lengkap sebelum reinstal Arch.
 | `backup-setup.sh` | 1.0.1 | Backup lengkap setup AI (config, proyek, daftar paket, combo router) ke satu .tar.gz |
 | `restore-setup.sh` | 1.0.1 | Restore otomatis dari archive backup di Arch baru (paket + config + proyek + combo) |
 | `push-setup.sh` | 1.0.0 | Publikasi repo ini ke GitHub (kalau perlu re-push setelah update) |
-| `combos-setup.sh` | 1.0.0 | Buat combo standar ops-free/dev/pro/plan (strategy round-robin) di router OmniRoute via API lokal |
+| `combos-setup.sh` | 1.1.0 | Buat combo standar ops-free/dev/pro/plan (strategy priority/fallback) di router OmniRoute via API lokal |
 
 ---
 
@@ -89,7 +89,7 @@ Yang di-restore otomatis:
 2. Proyek ke `/srv/http` (butuh sudo)
 3. Paket repo (`pacman`) + AUR (`yay`: opencode-bin, omniroute-bin)
 4. PATH `~/.local/bin` di config.fish
-5. Combo router (re-create yang hilang via API — strategy selalu **round-robin**)
+5. Combo router (re-create yang hilang via API — strategy selalu **priority**)
 
 > Router nyala otomatis saat login Hyprland (autostart `custom/execs.lua`).
 > Kalau login non-desktop: jalankan manual `omniroute` → login agentrouter.org.
@@ -131,31 +131,41 @@ buat API key management (Settings → API Keys → Create), lalu:
 ```fish
 combos-setup --key sk-xxx     # buat combo yang belum ada (idempotent)
 combos-setup --dry-run        # lihat rencana dulu (tanpa key)
-combos-setup --force          # update combo yang sudah ada ke round-robin
+combos-setup --force          # update combo yang sudah ada ke priority
 ```
 
 Membuat/men-sinkronkan combo `ops-free`, `ops-dev`, `ops-pro`, `ops-plan`
-(strategy **round-robin**) lewat API lokal `POST /api/combos`. Key juga bisa
-diambil otomatis dari `apiKey` provider omniroute di config opencode
-(`opencode.json`/`.jsonc`) atau env `OMNIROUTE_KEY`.
+(strategy **priority** — fallback chain: model pertama dicoba dulu, gagal →
+lanjut) lewat API lokal `POST /api/combos`. Key juga bisa diambil otomatis
+dari `apiKey` provider omniroute di config opencode (`opencode.json`/`.jsonc`)
+atau env `OMNIROUTE_KEY`.
 
 ---
 
-## 🎯 Kebijakan combo: round-robin
+## 🎯 Kebijakan combo: priority (fallback chain)
 
 Semua combo router (`ops-free`, `ops-dev`, `ops-pro`, `ops-plan`) memakai
-strategi **round-robin**: router memutar model secara bergiliran per request
-(bukan prioritas/fallback — model pertama tidak selalu dipakai duluan).
+strategi **priority**: router mencoba model pertama dulu; kalau gagal/error,
+lanjut ke model berikutnya (fallback chain). Model agentrouter sesuai tier
+berada di depan; `oc/deepseek-v4-flash-free` **selalu terakhir** sebagai
+jaring pengaman gratis sehingga combo tidak pernah mati total.
 
-| Combo | Tier | Chain model (rotasi per request) |
+| Combo | Tier | Chain model (urutan prioritas → fallback) |
 |---|---|---|
-| `ops-free` | ringan | oc/deepseek-v4-flash-free · agentrouter/gpt-5.6-sol |
-| `ops-dev` | menengah | oc/deepseek-v4-flash-free · agentrouter/gpt-5.6-sol · agentrouter/claude-opus-4-8 |
-| `ops-pro` | berat | oc/deepseek-v4-flash-free · agentrouter/claude-opus-4-8 · agentrouter/gpt-5.6-sol · agentrouter/claude-opus-5 |
-| `ops-plan` | paling pintar | agentrouter/claude-opus-5 · agentrouter/claude-opus-4-8 · agentrouter/gpt-5.6-sol · oc/deepseek-v4-flash-free |
+| `ops-free` | ringan | agentrouter/gpt-5.6-sol · oc/deepseek-v4-flash-free |
+| `ops-dev` | menengah | agentrouter/gpt-5.6-sol · agentrouter/claude-opus-4-8 · oc/deepseek-v4-flash-free |
+| `ops-pro` | berat | agentrouter/claude-opus-4-8 · agentrouter/gpt-5.6-sol · oc/deepseek-v4-flash-free |
+| `ops-plan` | paling pintar | agentrouter/claude-opus-4-8 · agentrouter/gpt-5.6-sol · oc/deepseek-v4-flash-free |
+
+> `agentrouter/claude-opus-5` sengaja tidak dipakai: akun agentrouter.org ini
+> tidak punya akses ke model tersebut ("no available distributor") — combo
+> yang memuatnya pasti gagal saat fallback jatuh ke sana. Akibatnya `ops-pro`
+> dan `ops-plan` kini berbagi chain yang sama; keduanya dipertahankan sebagai
+> alias tier (berat vs paling pintar) supaya `opencode-pick` dan file state
+> lama tetap berfungsi.
 
 Definisi combo ada di router (akun agentrouter.org / `omniroute`) — repo ini
 hanya memilih combo per proyek lewat `opencode-pick`. `backup-setup.sh`
 menyimpan dump combo ke `meta/combos.json`; saat restore, combo yang hilang
 dibuat ulang via API memakai dump itu (models & config) tapi strategy **selalu
-round-robin**, apa pun isi backup lama.
+priority**, apa pun isi backup lama.

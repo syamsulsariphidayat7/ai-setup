@@ -3,11 +3,13 @@
 # opencode-pick — pilih combo model AgentRouter secara otomatis per proyek
 #
 # Menganalisis kompleksitas proyek (file, LOC, bahasa, framework, test, git)
-# lalu merekomendasikan combo yang tepat:
-#   ops-free   : tugas ringan / gratis            (oc/deepseek-v4-flash-free → agentrouter/gpt-5.6-sol)
-#   ops-dev    : coding rutin                     (oc/deepseek-v4-flash-free → agentrouter/gpt-5.6-sol → agentrouter/claude-opus-4-8)
-#   ops-pro    : fitur berat / multi-file         (oc/deepseek-v4-flash-free → agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → agentrouter/claude-opus-5)
-#   ops-plan   : awal proyek / arsitektur         (agentrouter/claude-opus-5 → agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free)
+# lalu merekomendasikan combo yang tepat (strategi priority = fallback chain,
+# model pertama dicoba dulu; oc/deepseek-v4-flash-free selalu jaring pengaman
+# terakhir):
+#   ops-free   : tugas ringan / gratis            (agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free)
+#   ops-dev    : coding rutin                     (agentrouter/gpt-5.6-sol → agentrouter/claude-opus-4-8 → oc/deepseek-v4-flash-free)
+#   ops-pro    : fitur berat / multi-file         (agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free)
+#   ops-plan   : awal proyek / arsitektur         (agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free)
 #
 # Penggunaan:
 #   opencode-pick                      # rekomendasi + buka opencode TUI dengan combo tsb
@@ -37,7 +39,7 @@
 # ============================================================================
 set -euo pipefail
 
-VERSION="1.5.0"
+VERSION="1.6.0"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/opencode-pick"
 TIER_ORDER=(ops-free ops-dev ops-pro ops-plan)
 PROVIDER="omniroute"
@@ -52,10 +54,10 @@ declare -A COMBO_TIER=(
   [ops-plan]="paling pintar"
 )
 declare -A COMBO_CHAIN=(
-  [ops-free]="oc/deepseek-v4-flash-free → agentrouter/gpt-5.6-sol"
-  [ops-dev]="oc/deepseek-v4-flash-free → agentrouter/gpt-5.6-sol → agentrouter/claude-opus-4-8"
-  [ops-pro]="oc/deepseek-v4-flash-free → agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → agentrouter/claude-opus-5"
-  [ops-plan]="agentrouter/claude-opus-5 → agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free"
+  [ops-free]="agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free"
+  [ops-dev]="agentrouter/gpt-5.6-sol → agentrouter/claude-opus-4-8 → oc/deepseek-v4-flash-free"
+  [ops-pro]="agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free"
+  [ops-plan]="agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free"
 )
 
 # ---------------------------------------------------------------------------

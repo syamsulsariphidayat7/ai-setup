@@ -2,9 +2,12 @@
 # ============================================================================
 # combos-setup.sh — buat combo standar (ops-free/dev/pro/plan) di router OmniRoute
 #
-# Membuat 4 combo routing dengan strategy round-robin (kebijakan repo ai-setup)
-# lewat API lokal OmniRoute: POST /api/combos (Authorization: Bearer).
-# Combo yang sudah ada dilewati (idempotent); --force untuk update via PUT.
+# Membuat 4 combo routing dengan strategy priority (fallback chain — model
+# pertama dicoba dulu, gagal → lanjut ke berikutnya) lewat API lokal OmniRoute:
+# POST /api/combos (Authorization: Bearer). Setiap combo = model agentrouter
+# sesuai tier di depan + oc/deepseek-v4-flash-free di POSISI TERAKHIR sebagai
+# jaring pengaman gratis. Combo yang sudah ada dilewati (idempotent);
+# --force untuk update via PUT.
 #
 # Penggunaan:
 #   combos-setup.sh                  # buat combo yang belum ada
@@ -26,18 +29,22 @@
 # ============================================================================
 set -uo pipefail
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 BASE="${OMNIROUTE_URL:-http://localhost:20128}"
 KEY=""
 DRY=0
 FORCE=0
 
-# combo standar — chain model sama dengan kebijakan di README & opencode-pick
+# combo standar — chain model sama dengan kebijakan di README & opencode-pick.
+# Strategi priority: urutan = prioritas (fallback chain). Model agentrouter di
+# depan sesuai tier; oc/deepseek-v4-flash-free SELALU terakhir (jaring pengaman
+# gratis). claude-opus-5 sengaja TIDAK dipakai: akun agentrouter tidak punya
+# akses ("no available distributor").
 declare -A COMBO_MODELS=(
-  [ops-free]="oc/deepseek-v4-flash-free|agentrouter/gpt-5.6-sol"
-  [ops-dev]="oc/deepseek-v4-flash-free|agentrouter/gpt-5.6-sol|agentrouter/claude-opus-4-8"
-  [ops-pro]="oc/deepseek-v4-flash-free|agentrouter/claude-opus-4-8|agentrouter/gpt-5.6-sol|agentrouter/claude-opus-5"
-  [ops-plan]="agentrouter/claude-opus-5|agentrouter/claude-opus-4-8|agentrouter/gpt-5.6-sol|oc/deepseek-v4-flash-free"
+  [ops-free]="agentrouter/gpt-5.6-sol|oc/deepseek-v4-flash-free"
+  [ops-dev]="agentrouter/gpt-5.6-sol|agentrouter/claude-opus-4-8|oc/deepseek-v4-flash-free"
+  [ops-pro]="agentrouter/claude-opus-4-8|agentrouter/gpt-5.6-sol|oc/deepseek-v4-flash-free"
+  [ops-plan]="agentrouter/claude-opus-4-8|agentrouter/gpt-5.6-sol|oc/deepseek-v4-flash-free"
 )
 declare -A COMBO_TIER=(
   [ops-free]="ringan"
@@ -175,7 +182,8 @@ if action == "list":
 
 name = os.environ.get("COMBO_NAME", "")
 models = json.loads(os.environ.get("COMBO_MODELS_JSON", "[]"))
-payload = {"name": name, "strategy": "round-robin", "enabled": True,
+# priority = fallback chain: model pertama dicoba dulu, gagal → lanjut
+payload = {"name": name, "strategy": "priority", "enabled": True,
            "models": models, "config": {}}
 
 if action == "create":
@@ -183,7 +191,7 @@ if action == "create":
     if not (200 <= status < 300):
         # beberapa versi server menolak models saat create → coba kosong dulu
         status2, body2 = call("POST", "/api/combos",
-                              {"name": name, "strategy": "round-robin",
+                              {"name": name, "strategy": "priority",
                                "enabled": True, "models": [], "config": {}})
         if 200 <= status2 < 300:
             print("CREATED_EMPTY")
@@ -230,7 +238,7 @@ fi
 
 # --- buat/update combo ---
 echo "============================================================"
-echo "  🎯 Combo round-robin di $BASE (combos-setup.sh v${VERSION})"
+echo "  🎯 Combo priority (fallback chain) di $BASE (combos-setup.sh v${VERSION})"
 echo "============================================================"
 RC=0
 for name in "${COMBO_ORDER[@]}"; do
@@ -243,12 +251,12 @@ print(json.dumps([m for m in sys.stdin.read().split("|") if m]))')
   if [[ ${HAVE[$name]:-0} -eq 1 ]]; then
     if [[ $FORCE -eq 1 ]]; then
       if [[ $DRY -eq 1 ]]; then
-        echo "  ⏭  (dry-run) $name — sudah ada, akan di-update (round-robin)"
+        echo "  ⏭  (dry-run) $name — sudah ada, akan di-update (priority)"
         continue
       fi
       if COMBO_NAME="$name" COMBO_ID="${ID_OF[$name]}" COMBO_MODELS_JSON="$models_json" \
            api patch >/dev/null 2>&1; then
-        echo "  ✅ $name — di-update (round-robin, $tier): ${chain//|/ → }"
+        echo "  ✅ $name — di-update (priority, $tier): ${chain//|/ → }"
       else
         echo "  ❌ $name — gagal update"
         RC=1
@@ -260,11 +268,11 @@ print(json.dumps([m for m in sys.stdin.read().split("|") if m]))')
   fi
 
   if [[ $DRY -eq 1 ]]; then
-    echo "  ➕ (dry-run) $name — akan dibuat (round-robin, $tier): ${chain//|/ → }"
+    echo "  ➕ (dry-run) $name — akan dibuat (priority, $tier): ${chain//|/ → }"
     continue
   fi
   if COMBO_NAME="$name" COMBO_MODELS_JSON="$models_json" api create >/dev/null 2>&1; then
-    echo "  ✅ $name — dibuat (round-robin, $tier): ${chain//|/ → }"
+    echo "  ✅ $name — dibuat (priority, $tier): ${chain//|/ → }"
   else
     echo "  ❌ $name — gagal dibuat"
     RC=1

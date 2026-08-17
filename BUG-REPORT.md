@@ -60,4 +60,4 @@ lain dengan payload yang sama persis).
 1. Connect AgentRouter (API key) di OmniRoute.
 2. `curl -X POST localhost:20128/v1/chat/completions -d '{"model":"agentrouter/claude-opus-4-8","messages":[{"role":"user","content":"halo"}]}'` → 200 (umumnya).
 3. Ulangi bertubi-tubi atau kirim payload besar (system prompt ~9 KB + tools) → amati `400 content-blocked` yang muncul-hilang.
-4. Buat combo round-robin berisi model agentrouter → request via combo cenderung gagal lebih sering daripada langsung.
+4. Buat combo berisi model agentrouter → request via combo cenderung gagal lebih sering daripada langsung.

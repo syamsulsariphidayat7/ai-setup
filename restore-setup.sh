@@ -22,8 +22,8 @@
 #      meta/pkgs-aur.txt (yay: opencode-bin, omniroute-bin, dll)
 #   4. PATH   → pastikan ~/.local/bin ada di config.fish
 #   5. combo  → jika router hidup, cek combo ops-* ada; kalau hilang, re-create
-#      via API dari meta/combos.json — strategy SELALU round-robin (tidak peduli
-#      isi backup lama), mengikuti keputusan global "semua combo round-robin"
+#      via API dari meta/combos.json — strategy SELALU priority (tidak peduli
+#      isi backup lama), mengikuti keputusan global "semua combo priority"
 #   6. verifikasi akhir
 #
 # Env:
@@ -293,8 +293,8 @@ for c in combos:
         continue
     payload = {
         "name": c.get("name"),
-        # selalu round-robin — combo dari backup lama pun dibuat round-robin
-        "strategy": "round-robin",
+        # selalu priority — combo dari backup lama pun dibuat priority
+        "strategy": "priority",
         "models": c.get("models", []),
         "config": c.get("config", {}),
     }
