@@ -1,52 +1,32 @@
 #!/usr/bin/env bash
 # ============================================================================
-# opencode-pick — pilih combo model AgentRouter secara otomatis per proyek
+# opencode-pick — pilih combo model secara otomatis per proyek
 #
 # Menganalisis kompleksitas proyek (file, LOC, bahasa, framework, test, git)
-# lalu merekomendasikan combo yang tepat (strategi priority = fallback chain,
-# model pertama dicoba dulu; oc/deepseek-v4-flash-free selalu jaring pengaman
-# dan oc/mimo-v2.5-free lapis terakhir):
-#   ops-free   : tugas ringan / gratis            (agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free)
-#   ops-dev    : coding rutin                     (agentrouter/gpt-5.6-sol → agentrouter/claude-opus-4-8 → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free)
-#   ops-pro    : fitur berat / multi-file         (agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free)
-#   ops-plan   : awal proyek / arsitektur         (agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free)
+# lalu merekomendasikan combo:
+#   ops-free   : tugas ringan            (agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free)
+#   ops-dev    : coding rutin            (agentrouter/gpt-5.6-sol → agentrouter/claude-opus-4-8 → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free)
+#   ops-pro    : fitur berat             (agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free)
+#   ops-plan   : awal proyek / arsitektur (agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free)
 #
 # Penggunaan:
-#   opencode-pick                      # rekomendasi + buka opencode TUI dengan combo tsb
+#   opencode-pick                      # rekomendasi + buka opencode TUI
 #   opencode-pick run "pesan"          # opencode run dengan combo terpilih
-#   opencode-pick -c                   # lanjut sesi terakhir dengan combo terpilih
-#   opencode-pick --print              # hanya print nama combo (untuk scripting)
-#   opencode-pick --json               # print detail analisis dalam JSON
+#   opencode-pick -c                   # lanjut sesi terakhir
+#   opencode-pick --print              # hanya print nama combo
+#   opencode-pick --model-only         # print omniroute/<combo>
 #   opencode-pick --combo ops-pro      # paksa combo tertentu
-#   opencode-pick --free|--dev|--pro|--plan   # paksa combo
-#   opencode-pick --model-only         # print omniroute/<combo> (ID model opencode)
-#   opencode-pick --history            # tampilkan riwayat auto-switch proyek ini
-#   opencode-pick --reset              # hapus state tracker proyek ini
-#   opencode-pick --no-track           # tanpa efek samping: jangan simpan state & PROGRESS.md
-#   opencode-pick --no-log             # jangan catat ringkasan sesi ke PROGRESS.md
 #   opencode-pick --help
 #
-# Override per proyek: simpan file `.opencode-combo` di root proyek berisi nama
-# combo (mis. "ops-pro") untuk mengunci pilihan. Env OC_COMBO juga berlaku.
-#
-# Tracker otomatis: setiap pemilihan disimpan di ~/.local/state/opencode-pick/.
-# Saat proyek tumbuh/menyusut melintasi ambang skor, combo otomatis naik/turun
-# tier dan perubahan itu diumumkan. Gunakan -c untuk lanjut sesi dengan model baru.
-#
-# Auto-catat: setelah sesi opencode selesai (mode run/tui), ringkasan pesan
-# terakhir otomatis ditulis ke PROGRESS.md di bawah "## Riwayat" — safety net
-# dari aturan AGENTS-global "akhir sesi → update PROGRESS.md". --no-log utk mati.
+# Override per proyek: simpan file `.opencode-combo` di root proyek (mis. "ops-pro")
+# atau set env `OC_COMBO`.
 # ============================================================================
 set -euo pipefail
 
-VERSION="1.6.0"
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/opencode-pick"
+VERSION="2.0.0"
 TIER_ORDER=(ops-free ops-dev ops-pro ops-plan)
 PROVIDER="omniroute"
 
-# ---------------------------------------------------------------------------
-# Daftar combo (harus cocok dengan combo yang sudah dibuat di router)
-# ---------------------------------------------------------------------------
 declare -A COMBO_TIER=(
   [ops-free]="ringan"
   [ops-dev]="menengah"
@@ -60,9 +40,8 @@ declare -A COMBO_CHAIN=(
   [ops-plan]="agentrouter/claude-opus-4-8 → agentrouter/gpt-5.6-sol → oc/deepseek-v4-flash-free → oc/mimo-v2.5-free"
 )
 
-# ---------------------------------------------------------------------------
-# Helper
-# ---------------------------------------------------------------------------
+SOURCE_EXTS="\.(ts|tsx|js|jsx|mjs|cjs|py|rb|go|rs|java|kt|c|cpp|cc|h|hpp|cs|php|vue|svelte|swift|scala|hs|lua|r|pl|sh|bash|zsh|sql|graphql|proto|html|css|scss|less)$"
+
 err() { echo "❌ $*" >&2; }
 
 usage() {
@@ -71,12 +50,7 @@ usage() {
 }
 
 # ---------------------------------------------------------------------------
-# Deteksi ekstensi file sumber yang relevan
-# ---------------------------------------------------------------------------
-SOURCE_EXTS="\.(ts|tsx|js|jsx|mjs|cjs|py|rb|go|rs|java|kt|c|cpp|cc|h|hpp|cs|php|vue|svelte|swift|scala|hs|lua|r|pl|sh|bash|zsh|sql|graphql|proto|html|css|scss|less)$"
-
-# ---------------------------------------------------------------------------
-# Analisis proyek di direktori $1
+# Analisis proyek
 # ---------------------------------------------------------------------------
 analyze_project() {
   local dir="$1"
@@ -84,9 +58,8 @@ analyze_project() {
   local total_files=0 total_loc=0
   local -A lang_count=()
   local has_test=0 has_framework=0 framework_name=""
-  local deps_count=0 git_commits=0 is_monorepo=0
+  local deps_count=0 git_commits=0
 
-  # kumpulkan file sumber (maks 2000, kedalaman 8)
   mapfile -t file_list < <(
     find "$dir" \
       \( -path "$dir/.git" -o -path "$dir/node_modules" -o -path "$dir/vendor" \
@@ -98,9 +71,7 @@ analyze_project() {
   )
   total_files="${#file_list[@]}"
 
-  # LOC + bahasa
   for f in "${file_list[@]}"; do
-    # hanya hitung ekstensi bila nama file memilikinya
     if [[ "$f" == *.* ]]; then
       local ext="${f##*.}"
       ext="${ext,,}"
@@ -114,18 +85,12 @@ analyze_project() {
   local lang_kinds="${#lang_count[@]}"
 
   # test suite?
-  if find "$dir" -type d \( -name "__tests__" -o -name "tests" -o -name "test" -o -name "spec" \) \
-       -not -path "$dir/node_modules*" 2>/dev/null | grep -q .; then
-    has_test=1
-  elif find "$dir" -maxdepth 4 -type f \( -name "*.test.ts" -o -name "*.test.js" -o -name "*.spec.ts" -o -name "*.spec.js" -o -name "test_*.py" -o -name "*_test.go" -o -name "*.test.tsx" \) \
+  if find "$dir" -maxdepth 4 -type f \( -name "*.test.ts" -o -name "*.test.js" -o -name "*.spec.ts" -o -name "*.spec.js" -o -name "test_*.py" -o -name "*_test.go" \) \
        -not -path "$dir/node_modules*" 2>/dev/null | grep -q .; then
     has_test=1
   fi
 
-  # framework / stack dari AGENTS.md (tabel ## Stack) — menambah konteks proyek
-  detect_stack "$dir"
-
-  # framework / dependensi (nilai dilewatkan via env — aman dari injection)
+  # framework / dependensi
   if [[ -f "$dir/package.json" ]]; then
     has_framework=1
     deps_count=$(DIR="$dir" python3 -c '
@@ -137,32 +102,16 @@ try:
 except Exception:
     print(0)' 2>/dev/null || echo 0)
     framework_name="node ($deps_count deps)"
-    is_monorepo=$(DIR="$dir" python3 -c '
-import json, os
-try:
-    d=json.load(open(os.path.join(os.environ["DIR"], "package.json")))
-    print(1 if d.get("workspaces") else 0)
-except Exception:
-    print(0)' 2>/dev/null || echo 0)
   elif [[ -f "$dir/requirements.txt" ]]; then
     deps_count=$(grep -vcE '^\s*(#|$)' "$dir/requirements.txt" 2>/dev/null || echo 0)
     framework_name="python ($deps_count deps)"
     has_framework=1
-  elif [[ -f "$dir/pyproject.toml" ]]; then
-    deps_count=$(grep -cE '^\s*[A-Za-z0-9_-]+\s*=' "$dir/pyproject.toml" 2>/dev/null || echo 0)
-    framework_name="python/pyproject"
-    has_framework=1
   elif [[ -f "$dir/go.mod" ]]; then
-    deps_count=$(grep -cE '^\s*[a-zA-Z0-9._/-]+\s+v[0-9]' "$dir/go.mod" 2>/dev/null || echo 0)
-    framework_name="go ($deps_count deps)"
+    framework_name="go"
     has_framework=1
   elif [[ -f "$dir/Cargo.toml" ]]; then
-    deps_count=$(grep -cE '^[a-zA-Z0-9_-]+\s*=' "$dir/Cargo.toml" 2>/dev/null || echo 0)
-    framework_name="rust/cargo"
+    framework_name="rust"
     has_framework=1
-  elif [[ -f "$dir/composer.json" ]] || [[ -f "$dir/Gemfile" ]] || [[ -f "$dir/pom.xml" ]] || [[ -f "$dir/build.gradle" ]]; then
-    has_framework=1
-    framework_name="framework terdeteksi"
   fi
 
   # git history
@@ -170,12 +119,10 @@ except Exception:
     git_commits=$(git -C "$dir" rev-list --count HEAD 2>/dev/null || echo 0)
   fi
 
-  # -------------------------------------------------------------------------
   # SKOR kompleksitas (0-100)
-  # -------------------------------------------------------------------------
   local score=0
 
-  # 1) ukuran: file (0-20)
+  # ukuran file (0-20)
   if   [[ $total_files -eq 0 ]];        then score=$((score + 0))
   elif [[ $total_files -lt 5 ]];        then score=$((score + 3))
   elif [[ $total_files -lt 20 ]];       then score=$((score + 8))
@@ -183,7 +130,7 @@ except Exception:
   else                                       score=$((score + 20))
   fi
 
-  # 2) LOC (0-20) — skala log
+  # LOC (0-20)
   if   [[ $total_loc -lt 100 ]];        then score=$((score + 1))
   elif [[ $total_loc -lt 500 ]];        then score=$((score + 6))
   elif [[ $total_loc -lt 3000 ]];       then score=$((score + 12))
@@ -191,14 +138,14 @@ except Exception:
   else                                       score=$((score + 20))
   fi
 
-  # 3) ragam bahasa (0-15)
+  # ragam bahasa (0-15)
   if   [[ $lang_kinds -ge 6 ]];         then score=$((score + 15))
   elif [[ $lang_kinds -ge 4 ]];         then score=$((score + 11))
   elif [[ $lang_kinds -ge 2 ]];         then score=$((score + 6))
   else                                       score=$((score + 1))
   fi
 
-  # 4) framework & dependensi (0-15)
+  # framework & dependensi (0-15)
   if [[ $has_framework -eq 1 ]]; then
     if   [[ $deps_count -ge 50 ]];      then score=$((score + 15))
     elif [[ $deps_count -ge 15 ]];      then score=$((score + 11))
@@ -207,23 +154,16 @@ except Exception:
     fi
   fi
 
-  # 5) test suite (0-10)
+  # test suite (0-10)
   [[ $has_test -eq 1 ]] && score=$((score + 10))
 
-  # 6) monorepo (0-10)
-  [[ $is_monorepo -eq 1 ]] && score=$((score + 10))
-
-  # 7) git maturity (0-10)
+  # git maturity (0-10)
   if [[ $git_commits -ge 200 ]];        then score=$((score + 10))
   elif [[ $git_commits -ge 50 ]];       then score=$((score + 7))
   elif [[ $git_commits -ge 10 ]];       then score=$((score + 4))
   elif [[ $git_commits -ge 1 ]];        then score=$((score + 1))
   fi
 
-  # 8) stack dari AGENTS.md (0-10) — framework+DB+auth+infra yang terdokumentasi
-  score=$((score + RESULT_STACK_SCORE))
-
-  # simpan hasil via variabel global
   RESULT_SCORE=$score
   RESULT_FILES=$total_files
   RESULT_LOC=$total_loc
@@ -232,21 +172,10 @@ except Exception:
   RESULT_FW="$framework_name"
   RESULT_DEPS=$deps_count
   RESULT_COMMITS=$git_commits
-  RESULT_MONO=$is_monorepo
 }
 
-# ---------------------------------------------------------------------------
-# Mapping skor → combo
-# ---------------------------------------------------------------------------
 pick_combo() {
   local score=$1
-  local new_project=$2
-
-  # proyek baru (belum ada kode berarti) → fase perencanaan → model paling pintar
-  if [[ $new_project -eq 1 ]]; then
-    echo "ops-plan"
-    return
-  fi
   if   [[ $score -le 15 ]]; then echo "ops-free"
   elif [[ $score -le 30 ]]; then echo "ops-dev"
   elif [[ $score -le 55 ]]; then echo "ops-pro"
@@ -255,362 +184,13 @@ pick_combo() {
 }
 
 # ---------------------------------------------------------------------------
-# Deteksi "proyek baru" (fase perencanaan awal)
-# ---------------------------------------------------------------------------
-is_new_project() {
-  # tidak ada git, dan hampir tidak ada file sumber
-  if [[ ! -d "$TARGET_DIR/.git" ]] && [[ $RESULT_FILES -le 3 ]]; then
-    echo 1; return
-  fi
-  # ada git tapi 0 commit dan sedikit file
-  if [[ -d "$TARGET_DIR/.git" ]] && [[ $RESULT_COMMITS -eq 0 ]] && [[ $RESULT_FILES -le 5 ]]; then
-    echo 1; return
-  fi
-  echo 0
-}
-
-# ---------------------------------------------------------------------------
-# Deteksi fase dari PROGRESS.md (workflow: Discovery → Design → Setup →
-# Development → Integration & Testing → Deployment → Maintenance)
-# ---------------------------------------------------------------------------
-detect_phase() {
-  # hasil: PHASE="planning" | "development" | "maintenance" | ""
-  PHASE=""
-  local progress="$TARGET_DIR/PROGRESS.md"
-  [[ -f "$progress" ]] || return 0
-  # 1) bagian utama: teks setelah heading "## Fase ..." sampai heading "## " berikutnya
-  local section
-  section=$(awk '
-    /^##[[:space:]]+Fase/ { in_phase=1; next }
-    in_phase && /^##[[:space:]]/ { exit }
-    in_phase { print }
-  ' "$progress" 2>/dev/null)
-  # 2) fallback: baris awal sampai sebelum "## Riwayat" (fase lama diabaikan)
-  if [[ -z "$section" ]]; then
-    section=$(awk '/^##[[:space:]]*Riwayat/ { exit } { print }' "$progress" 2>/dev/null | head -40)
-  fi
-  [[ -z "$section" ]] && return 0
-  # planning: discovery/design/perencanaan — butuh model paling pintar
-  if printf '%s' "$section" | grep -qiE 'Discovery|Perencanaan|Planning|Fase Awal|Desain|Wireframe|ERD|\bDesign\b'; then
-    PHASE="planning"
-  elif printf '%s' "$section" | grep -qiE 'Deploy(ed|ment)|Production|Maintenance|go-live|\blive\b'; then
-    PHASE="maintenance"
-  elif printf '%s' "$section" | grep -qiE '\bDevelopment\b|\bSetup\b|Implementasi'; then
-    PHASE="development"
-  fi
-  return 0
-}
-
-# ---------------------------------------------------------------------------
-# Deteksi stack/framework dari AGENTS.md — baca tabel "## Stack"
-# dan beri skor kompleksitas berdasarkan teknologi yang terdokumentasi
-# ---------------------------------------------------------------------------
-detect_stack() {
-  local dir="$1"
-  RESULT_STACK=""
-  RESULT_STACK_SCORE=0
-  local agents="$dir/AGENTS.md"
-  [[ -f "$agents" ]] || return 0
-
-  # ekstrak bagian "## Stack" (sampai heading ## berikutnya)
-  local section
-  section=$(awk '
-    /^##[[:space:]]+Stack/ { in_stack=1; next }
-    in_stack && /^##[[:space:]]/ { exit }
-    in_stack { print }
-  ' "$agents" 2>/dev/null)
-  # fallback: jika tidak ada heading Stack, pakai 80 baris pertama
-  if [[ -z "$section" ]]; then
-    section=$(sed -n '1,80p' "$agents" 2>/dev/null)
-  fi
-  [[ -z "$section" ]] && return 0
-
-  # daftar teknologi dengan bobot kompleksitas
-  # format: kata:skor — dipakai dengan grep -F (fixed string, bukan regex),
-  # sehingga titik di next.js/auth.js dianggap literal. Hindari keyword yang
-  # saling substring (mis. postgres vs postgresql) supaya tidak dobel hitung.
-  local -a tech
-  tech=(
-    "next.js:4" "nuxt:4" "laravel:4" "django:4" "rails:4" "nestjs:4"
-    "react:2" "vue:2" "svelte:2" "angular:2" "remix:2" "astro:2"
-    "postgresql:3" "mysql:3" "mongodb:3" "sqlite:2" "mariadb:3" "redis:3" "neon:2" "supabase:2" "firebase:2"
-    "prisma:3" "typeorm:2" "drizzle:2" "sequelize:2" "knex:2"
-    "nextauth:2" "keycloak:3" "auth0:2" "passport:2"
-    "tailwind:2" "shadcn:1" "mui:1" "bootstrap:1" "chakra:1" "styled-components:1"
-    "docker:3" "kubernetes:4" "vercel:2" "cloudflare:2" "nginx:2" "caddy:1"
-    "graphql:2" "grpc:2" "websocket:2" "pwa:1" "stripe:2" "xendit:2" "midtrans:2"
-    "jest:1" "vitest:1" "playwright:2" "cypress:2" "pytest:1" "phpunit:1" "rspec:1"
-  )
-
-  local total=0 kw w found=""
-  for entry in "${tech[@]}"; do
-    kw="${entry%%:*}"
-    w="${entry##*:}"
-    # grep -F = fixed string: titik/lambang lain dianggap literal, bukan regex
-    if printf '%s' "$section" | grep -qiF "$kw"; then
-      total=$((total + w))
-      if [[ -z "$found" ]]; then found="$kw"; else found="$found, $kw"; fi
-    fi
-  done
-
-  # batasi ke 0-10
-  if   [[ $total -ge 12 ]]; then RESULT_STACK_SCORE=10
-  elif [[ $total -ge 8 ]];  then RESULT_STACK_SCORE=8
-  elif [[ $total -ge 5 ]];  then RESULT_STACK_SCORE=6
-  elif [[ $total -ge 3 ]];  then RESULT_STACK_SCORE=4
-  elif [[ $total -ge 1 ]];  then RESULT_STACK_SCORE=2
-  fi
-  RESULT_STACK="$found"
-}
-
-# ---------------------------------------------------------------------------
-# Tracker proyek — simpan skor/combo di state dir, deteksi pertumbuhan
-# ---------------------------------------------------------------------------
-project_key() {
-  # hash path proyek → nama file state yang stabil
-  local hash
-  hash=$(printf '%s' "$1" | sha256sum 2>/dev/null | cut -c1-12)
-  if [[ -z "$hash" ]]; then
-    hash=$(printf '%s' "$1" | cksum | cut -d' ' -f1)
-  fi
-  echo "$hash"
-}
-
-load_state() {
-  # set STATE_COMBO & STATE_SCORE dari file state (jika ada)
-  # path dilewatkan via env (aman dari injection/quotes)
-  local key
-  key=$(project_key "$TARGET_DIR")
-  STATE_FILE="$STATE_DIR/$key.json"
-  STATE_COMBO=""
-  STATE_SCORE=""
-  if [[ -f "$STATE_FILE" ]]; then
-    STATE_COMBO=$(STATE_FILE="$STATE_FILE" python3 -c '
-import json, os
-try:
-    print(json.load(open(os.environ["STATE_FILE"])).get("combo", ""))
-except Exception:
-    print("")' 2>/dev/null || echo "")
-    STATE_SCORE=$(STATE_FILE="$STATE_FILE" python3 -c '
-import json, os
-try:
-    print(json.load(open(os.environ["STATE_FILE"])).get("score", ""))
-except Exception:
-    print("")' 2>/dev/null || echo "")
-  fi
-}
-
-save_state() {
-  mkdir -p "$STATE_DIR"
-  local key
-  key=$(project_key "$TARGET_DIR")
-  python3 - "$STATE_DIR/$key.json" "$TARGET_DIR" "$RESULT_SCORE" "$COMBO" <<'PY'
-import json, os, sys, time
-path, proj, score, combo = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
-data = {"project": proj, "score": int(score), "combo": combo, "updated": int(time.time())}
-with open(path, "w") as f:
-    json.dump(data, f)
-PY
-}
-
-tier_index() {
-  local c="$1" i
-  for i in "${!TIER_ORDER[@]}"; do
-    if [[ "${TIER_ORDER[$i]}" == "$c" ]]; then
-      echo "$i"
-      return
-    fi
-  done
-  echo "-1"
-}
-
-track_tier_change() {
-  # bandingkan combo sekarang dengan state lama; announce naik/turun tier
-  [[ "$TRACK" -eq 0 ]] && return
-  # combo dipaksa user (flag/env/file) atau fase planning: jangan ubah baseline
-  if [[ "$FORCED" -eq 1 || "$PHASE_FORCED" -eq 1 ]]; then
-    return
-  fi
-  # fase perencanaan (proyek baru): sementara, jangan simpan/bandingkan
-  if [[ "$NEW_PROJ" -eq 1 ]]; then
-    return
-  fi
-  if [[ -z "$STATE_COMBO" ]]; then
-    save_state
-    return
-  fi
-  local old_idx new_idx
-  old_idx=$(tier_index "$STATE_COMBO")
-  new_idx=$(tier_index "$COMBO")
-  if [[ $new_idx -gt $old_idx ]]; then
-    echo "📈 Proyek tumbuh: ${STATE_COMBO} (skor ${STATE_SCORE:-?}) → ${COMBO} (skor ${RESULT_SCORE}) — combo otomatis dinaikkan"
-  elif [[ $new_idx -lt $old_idx ]]; then
-    echo "📉 Proyek menyusut: ${STATE_COMBO} (skor ${STATE_SCORE:-?}) → ${COMBO} (skor ${RESULT_SCORE}) — combo otomatis diturunkan"
-  fi
-  save_state
-}
-
-show_history() {
-  echo "=== Riwayat auto-switch: $TARGET_DIR ==="
-  echo "  combo sekarang : $COMBO (skor $RESULT_SCORE)"
-  echo "  combo tersimpan: ${STATE_COMBO:-—} (skor ${STATE_SCORE:-—})"
-  if [[ -f "$STATE_FILE" ]]; then
-    local ts
-    ts=$(STATE_FILE="$STATE_FILE" python3 -c '
-import json, os, datetime
-try:
-    print(datetime.datetime.fromtimestamp(json.load(open(os.environ["STATE_FILE"])).get("updated", 0)))
-except Exception:
-    print("?")' 2>/dev/null || echo '?')
-    echo "  file state    : $STATE_FILE"
-    echo "  terakhir      : $ts"
-  else
-    echo "  file state    : (belum ada)"
-  fi
-}
-
-# ---------------------------------------------------------------------------
-# Auto-catat — setelah opencode selesai (run/tui), ambil ringkasan pesan
-# terakhir dari storage opencode (SQLite + `opencode export`) lalu append ke
-# PROGRESS.md di bawah "## Riwayat". Safety net aturan AGENTS-global
-# "akhir sesi → update PROGRESS.md". Matikan dengan --no-log.
-# ---------------------------------------------------------------------------
-log_session() {
-  # --no-track = tanpa efek samping persisten (state tracker + PROGRESS.md)
-  [[ "$LOG" -eq 1 && "$TRACK" -eq 1 ]] || return 0
-  OC_PICK_DB="${OC_PICK_DB:-${XDG_DATA_HOME:-$HOME/.local/share}/opencode/opencode.db}" \
-  OC_PICK_SESSION_ID="${OC_PICK_SESSION_ID:-}" \
-  LOG_START_MS="$LOG_START_MS" TARGET_DIR="$TARGET_DIR" COMBO="$COMBO" \
-  RESULT_SCORE="$RESULT_SCORE" \
-  python3 - "$TARGET_DIR/PROGRESS.md" <<'PY'
-import json, os, sqlite3, subprocess, sys, urllib.parse, datetime
-
-progress = sys.argv[1]
-combo = os.environ.get("COMBO", "")
-score = os.environ.get("RESULT_SCORE", "?")
-try:
-    start_ms = int(os.environ.get("LOG_START_MS", "0") or 0)
-except ValueError:
-    start_ms = 0
-
-# 1) cari sesi proyek ini yang paling baru di-update setelah opencode jalan
-sid = ""
-if os.environ.get("OC_PICK_SESSION_ID"):
-    sid = os.environ["OC_PICK_SESSION_ID"]
-else:
-    db = os.environ.get("OC_PICK_DB") or os.path.expanduser(
-        "~/.local/share/opencode/opencode.db")
-    if os.path.isfile(db):
-        try:
-            uri = "file:" + urllib.parse.quote(db) + "?mode=ro"
-            con = sqlite3.connect(uri, uri=True)
-            row = con.execute(
-                "SELECT id FROM session WHERE directory = ? AND time_updated >= ? "
-                "ORDER BY time_updated DESC LIMIT 1",
-                (os.environ.get("TARGET_DIR", ""), start_ms),
-            ).fetchone()
-            sid = row[0] if row else ""
-        except Exception:
-            sid = ""
-if not sid:
-    sys.exit(0)
-
-# 2) export transkrip sesi & ambil prompt pertama + jawaban terakhir
-try:
-    out = subprocess.run(["opencode", "export", sid],
-                         capture_output=True, text=True, timeout=45)
-    data = json.loads(out.stdout or "{}")
-except Exception:
-    sys.exit(0)
-msgs = data.get("messages", []) if isinstance(data, dict) else []
-
-def text_of(m):
-    return "".join(p.get("text", "") for p in m.get("parts", [])
-                   if p.get("type") == "text")
-
-first_user = ""
-last_assistant = ""
-for m in msgs:
-    role = (m.get("info") or {}).get("role")
-    t = text_of(m).strip()
-    if role == "user" and not first_user and t:
-        first_user = t
-    elif role == "assistant" and t:
-        last_assistant = t
-# pesan terakhir asisten tanpa teks (error/gangguan) → jangan log ringkasan lama
-if msgs:
-    lm = msgs[-1]
-    lr = (lm.get("info") or {}).get("role")
-    if lr == "assistant" and not text_of(lm).strip():
-        sys.exit(0)
-if not last_assistant:
-    sys.exit(0)  # sesi tanpa jawaban berarti — jangan tulis apa-apa
-
-def clip(s, n):
-    s = " ".join(s.split())
-    return s if len(s) <= n else s[:n].rstrip() + "…"
-
-prompt = clip(first_user, 80)
-summary = clip(last_assistant, 600)
-ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-
-entry = "### %s — %s (skor %s)" % (ts, combo, score)
-if prompt:
-    entry += " · `%s`" % prompt
-entry += "\n\n" + summary + "\n"
-
-# 3) tulis di bawah "## Riwayat" (buat file/section jika belum ada)
-if not os.path.isfile(progress) or not open(progress).read().strip():
-    name = os.path.basename(os.environ.get("TARGET_DIR", "")) or "proyek"
-    head = (
-        "# %s\n\n"
-        "## Fase Aktif\n"
-        "(Discovery | Design | Setup | Development | Integration & Testing "
-        "| Deployment | Maintenance)\n\n"
-        "## Status Terakhir\n"
-        "(awal — belum ada sesi tercatat)\n\n") % name
-    with open(progress, "w") as f:
-        f.write(head)
-
-with open(progress) as f:
-    content = f.read()
-
-marker = "## Riwayat"
-idx = content.rfind(marker)
-if idx != -1:
-    idx += len(marker)
-    content = content[:idx] + "\n\n" + entry + "\n" + content[idx:].lstrip("\n")
-else:
-    content = content.rstrip() + "\n\n" + marker + "\n\n" + entry + "\n"
-
-with open(progress, "w") as f:
-    f.write(content)
-
-print("📝 Auto-catat: ringkasan sesi → %s" % progress)
-PY
-}
-
-# ---------------------------------------------------------------------------
 # MAIN
 # ---------------------------------------------------------------------------
-MODE="tui"        # tui | run | print | json | model-only | history | dry-run | reset
+MODE="tui"
 FORCE_COMBO=""
 RUN_ARGS=()
 TARGET_DIR="$(pwd)"
-TRACK=1
-CONTINUE=0
-LOG=1
-LOG_START_MS=0
-FORCED=0
-PHASE_FORCED=0
-PHASE=""
-RESULT_STACK=""
-RESULT_STACK_SCORE=0
-STATE_FILE=""
-STATE_COMBO=""
-STATE_SCORE=""
 
-# parse args
 ARGS=("$@")
 i=0
 while [[ $i -lt ${#ARGS[@]} ]]; do
@@ -619,29 +199,11 @@ while [[ $i -lt ${#ARGS[@]} ]]; do
     --help|-h) usage ;;
     --version) echo "opencode-pick v${VERSION}"; exit 0 ;;
     --print) MODE="print" ;;
-    --json) MODE="json" ;;
     --model-only) MODE="model-only" ;;
-    --combo)
-      i=$((i+1))
-      FORCE_COMBO="${ARGS[$i]:-}"
-      ;;
-    --free) FORCE_COMBO="ops-free" ;;
-    --dev) FORCE_COMBO="ops-dev" ;;
-    --pro) FORCE_COMBO="ops-pro" ;;
-    --plan) FORCE_COMBO="ops-plan" ;;
+    --combo) i=$((i+1)); FORCE_COMBO="${ARGS[$i]:-}" ;;
     run) MODE="run" ;;
     -c|--continue) CONTINUE=1 ;;
-    --history) MODE="history" ;;
-    --dry-run) MODE="dry-run" ;;
-    --reset)
-      MODE="reset"
-      ;;
-    --no-track) TRACK=0 ;;
-    --no-log) LOG=0 ;;
-    --dir)
-      i=$((i+1))
-      TARGET_DIR="${ARGS[$i]:-}"
-      ;;
+    --dir) i=$((i+1)); TARGET_DIR="${ARGS[$i]:-}" ;;
     *)
       if [[ $MODE == "run" ]]; then
         RUN_ARGS+=("$a")
@@ -654,181 +216,57 @@ while [[ $i -lt ${#ARGS[@]} ]]; do
   i=$((i+1))
 done
 
-# validasi
-if [[ $MODE == "run" && ${#RUN_ARGS[@]} -eq 0 ]]; then
-  err "Mode run membutuhkan prompt: opencode-pick run \"pesan\""
-  exit 1
-fi
-if [[ ! -d "$TARGET_DIR" ]]; then
-  err "Direktori tidak ditemukan: $TARGET_DIR"
-  exit 1
-fi
+[[ $MODE == "run" && ${#RUN_ARGS[@]} -eq 0 ]] && { err "Mode run butuh prompt: opencode-pick run \"pesan\""; exit 1; }
+[[ ! -d "$TARGET_DIR" ]] && { err "Direktori tidak ditemukan: $TARGET_DIR"; exit 1; }
 
-# prioritas override: --combo/--flag > .opencode-combo > $OC_COMBO > otomatis
+# resolve combo
 COMBO=""
 if [[ -n "$FORCE_COMBO" ]]; then
   COMBO="$FORCE_COMBO"
-  FORCED=1
 elif [[ -n "${OC_COMBO:-}" ]]; then
   COMBO="$OC_COMBO"
-  FORCED=1
 elif [[ -f "$TARGET_DIR/.opencode-combo" ]]; then
   COMBO=$(tr -d '[:space:]' < "$TARGET_DIR/.opencode-combo")
-  FORCED=1
 fi
 
-# analisis
 analyze_project "$TARGET_DIR"
-NEW_PROJ=$(is_new_project)
-
-# deteksi fase proyek (PROGRESS.md) — fase perencanaan paksa model paling pintar
-if [[ -z "$COMBO" ]]; then
-  detect_phase
-  if [[ "$PHASE" == "planning" && "$NEW_PROJ" -eq 0 ]]; then
-    COMBO="ops-plan"
-    # fase yang memaksa ≠ pilihan user: jangan sentuh baseline tracker
-    PHASE_FORCED=1
-  fi
-fi
 
 if [[ -z "$COMBO" ]]; then
-  COMBO=$(pick_combo "$RESULT_SCORE" "$NEW_PROJ")
+  COMBO=$(pick_combo "$RESULT_SCORE")
 fi
 
-# validasi combo dikenal
-if [[ -z "${COMBO_TIER[$COMBO]:-}" ]]; then
-  err "Combo tidak dikenal: '$COMBO'. Pilihan: ops-free | ops-dev | ops-pro | ops-plan"
-  exit 1
-fi
+[[ -z "${COMBO_TIER[$COMBO]:-}" ]] && { err "Combo tidak dikenal: '$COMBO'. Pilihan: ops-free | ops-dev | ops-pro | ops-plan"; exit 1; }
 
-# tracker state
-load_state
+CONTINUE="${CONTINUE:-0}"
 
-# mode history & reset tidak butuh analisis lanjutan
-if [[ "$MODE" == "history" ]]; then
-  show_history
-  exit 0
-fi
-if [[ "$MODE" == "reset" ]]; then
-  if [[ -n "$STATE_FILE" && -f "$STATE_FILE" ]]; then
-    rm -f "$STATE_FILE"
-    echo "✅ State tracker proyek dihapus: $STATE_FILE"
-  else
-    echo "ℹ️  Tidak ada state untuk proyek ini."
-  fi
-  exit 0
-fi
-
-# deteksi pertumbuhan → announce + simpan state
-# (dry-run hanya menampilkan, tidak menulis state)
-if [[ "$MODE" != "print" && "$MODE" != "model-only" && "$MODE" != "json" && "$MODE" != "dry-run" ]]; then
-  track_tier_change
-fi
-
-# ---------------------------------------------------------------------------
-# Output & aksi
-# ---------------------------------------------------------------------------
 case "$MODE" in
-  print)
-    echo "$COMBO"
-    ;;
-  model-only)
-    echo "$PROVIDER/$COMBO"
-    ;;
-  json)
-    TARGET_DIR="$TARGET_DIR" COMBO="$COMBO" PROVIDER="$PROVIDER" \
-    TIER="${COMBO_TIER[$COMBO]}" CHAIN="${COMBO_CHAIN[$COMBO]}" \
-    RESULT_SCORE="$RESULT_SCORE" RESULT_FILES="$RESULT_FILES" \
-    RESULT_LOC="$RESULT_LOC" RESULT_LANGS="$RESULT_LANGS" \
-    RESULT_TEST="$RESULT_TEST" RESULT_FW="$RESULT_FW" \
-    RESULT_DEPS="$RESULT_DEPS" RESULT_COMMITS="$RESULT_COMMITS" \
-    RESULT_MONO="$RESULT_MONO" NEW_PROJ="$NEW_PROJ" PHASE="$PHASE" \
-    RESULT_STACK="$RESULT_STACK" RESULT_STACK_SCORE="$RESULT_STACK_SCORE" \
-    python3 - <<'PY'
-import json, os
-print(json.dumps({
-    'project': os.environ['TARGET_DIR'],
-    'combo': os.environ['COMBO'],
-    'model': f"{os.environ['PROVIDER']}/{os.environ['COMBO']}",
-    'tier': os.environ['TIER'],
-    'chain': os.environ['CHAIN'],
-    'analysis': {
-        'score': int(os.environ.get('RESULT_SCORE', 0)),
-        'files': int(os.environ.get('RESULT_FILES', 0)),
-        'loc': int(os.environ.get('RESULT_LOC', 0)),
-        'languages': int(os.environ.get('RESULT_LANGS', 0)),
-        'has_test': int(os.environ.get('RESULT_TEST', 0)),
-        'framework': os.environ.get('RESULT_FW', ''),
-        'deps': int(os.environ.get('RESULT_DEPS', 0)),
-        'git_commits': int(os.environ.get('RESULT_COMMITS', 0)),
-        'monorepo': int(os.environ.get('RESULT_MONO', 0)),
-        'new_project': int(os.environ.get('NEW_PROJ', 0)),
-        'phase': os.environ.get('PHASE', ''),
-        'stack': os.environ.get('RESULT_STACK', ''),
-        'stack_score': int(os.environ.get('RESULT_STACK_SCORE', 0)),
-    }
-}, indent=2))
-PY
-    ;;
+  print) echo "$COMBO" ;;
+  model-only) echo "$PROVIDER/$COMBO" ;;
   run)
     echo "→ ${PROVIDER}/${COMBO} (${COMBO_TIER[$COMBO]}): ${COMBO_CHAIN[$COMBO]}"
     cd "$TARGET_DIR"
-    LOG_START_MS=$(date +%s%3N)
-    set +e
     if [[ $CONTINUE -eq 1 ]]; then
       opencode run -c --model "${PROVIDER}/${COMBO}" "${RUN_ARGS[@]}"
     else
       opencode run --model "${PROVIDER}/${COMBO}" "${RUN_ARGS[@]}"
     fi
-    ec=$?
-    set -e
-    log_session || true
-    exit $ec
     ;;
   tui)
     echo "============================================================"
-    echo "  📊 Analisis: $(basename "$TARGET_DIR")  |  skor ${RESULT_SCORE}"
+    echo "  📊 $(basename "$TARGET_DIR")  |  skor ${RESULT_SCORE}"
     echo "     ${RESULT_FILES} file · ${RESULT_LOC} baris · ${RESULT_LANGS} bahasa"
     [[ $RESULT_TEST -eq 1 ]] && echo "     ✅ test suite" || echo "     ❌ tanpa test"
-    [[ -n "$RESULT_FW" ]] && echo "     📦 framework: $RESULT_FW"
-    [[ -n "$RESULT_STACK" ]] && echo "     🛠️  stack: $RESULT_STACK"
-    [[ $RESULT_COMMITS -gt 0 ]] && echo "     🔀 $RESULT_COMMITS commit" || echo "     🔀 tanpa git history"
-    [[ $NEW_PROJ -eq 1 ]] && echo "     🌱 proyek baru (fase perencanaan)"
-    [[ -n "$PHASE" ]] && echo "     📋 fase: ${PHASE} (dari PROGRESS.md)"
-    [[ -n "$STATE_COMBO" && "$STATE_COMBO" != "$COMBO" ]] && echo "     🔄 tier berubah: ${STATE_COMBO} → ${COMBO}"
+    [[ -n "$RESULT_FW" ]] && echo "     📦 $RESULT_FW"
+    [[ $RESULT_COMMITS -gt 0 ]] && echo "     🔀 $RESULT_COMMITS commit"
     echo "------------------------------------------------------------"
-    echo "  🎯 Combo: ${PROVIDER}/${COMBO}  (tier ${COMBO_TIER[$COMBO]})"
+    echo "  🎯 ${PROVIDER}/${COMBO}  (${COMBO_TIER[$COMBO]})"
     echo "     ${COMBO_CHAIN[$COMBO]}"
-    [[ $LOG -eq 1 ]] && echo "     📝 auto-catat ringkasan sesi → PROGRESS.md (--no-log utk mati)"
     echo "============================================================"
     cd "$TARGET_DIR"
-    LOG_START_MS=$(date +%s%3N)
-    set +e
     if [[ $CONTINUE -eq 1 ]]; then
       opencode -c --model "${PROVIDER}/${COMBO}"
     else
       opencode --model "${PROVIDER}/${COMBO}"
     fi
-    ec=$?
-    set -e
-    log_session || true
-    exit $ec
-    ;;
-  dry-run)
-    echo "============================================================"
-    echo "  📊 Analisis: $(basename "$TARGET_DIR")  |  skor ${RESULT_SCORE}"
-    echo "     ${RESULT_FILES} file · ${RESULT_LOC} baris · ${RESULT_LANGS} bahasa"
-    [[ $RESULT_TEST -eq 1 ]] && echo "     ✅ test suite" || echo "     ❌ tanpa test"
-    [[ -n "$RESULT_FW" ]] && echo "     📦 framework: $RESULT_FW"
-    [[ -n "$RESULT_STACK" ]] && echo "     🛠️  stack: $RESULT_STACK"
-    [[ $RESULT_COMMITS -gt 0 ]] && echo "     🔀 $RESULT_COMMITS commit" || echo "     🔀 tanpa git history"
-    [[ $NEW_PROJ -eq 1 ]] && echo "     🌱 proyek baru (fase perencanaan)"
-    [[ -n "$PHASE" ]] && echo "     📋 fase: ${PHASE} (dari PROGRESS.md)"
-    [[ -n "$STATE_COMBO" && "$STATE_COMBO" != "$COMBO" ]] && echo "     🔄 tier berubah: ${STATE_COMBO} → ${COMBO}"
-    echo "------------------------------------------------------------"
-    echo "  🎯 Combo: ${PROVIDER}/${COMBO}  (tier ${COMBO_TIER[$COMBO]})"
-    echo "     ${COMBO_CHAIN[$COMBO]}"
-    echo "  ▶ akan menjalankan: opencode $([ $CONTINUE -eq 1 ] && echo '-c ')--model ${PROVIDER}/${COMBO}"
-    echo "============================================================"
     ;;
 esac
